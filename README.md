@@ -6,7 +6,7 @@ Quick start (Windows PowerShell):
 
 1. Open PowerShell and navigate to the project folder
 
-   Set-Location -Path "c:\\Users\\masidd\\Desktop\\qn\\web"
+   Set-Location -Path "<path>\\web"
 
 2. Install dependencies
 
