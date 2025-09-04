@@ -1,0 +1,128 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Custom theme styles */
+.border-gold {
+  border-color: #ffd700;
+}
+
+.border-rainbow {
+  border: 2px solid;
+  border-image: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #ffeaa7, #dda0dd) 1;
+}
+
+.prose a {
+  @apply text-blue-600 hover:underline;
+}
+
+/* Ripple Effect Styles */
+.ripple-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Main ripple circle */
+.ripple-circle {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid;
+  background: transparent;
+  transform: scale(0);
+  opacity: 0.8;
+}
+
+.ripple-circle-1 {
+  animation: ripple-animation-1 1.2s ease-out;
+}
+
+.ripple-circle-2 {
+  animation: ripple-animation-2 1.4s ease-out;
+  animation-delay: 0.1s;
+}
+
+.ripple-circle-3 {
+  animation: ripple-animation-3 1.6s ease-out;
+  animation-delay: 0.2s;
+}
+
+@keyframes ripple-animation-1 {
+  0% {
+    transform: scale(0);
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+@keyframes ripple-animation-2 {
+  0% {
+    transform: scale(0);
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(6);
+    opacity: 0;
+  }
+}
+
+@keyframes ripple-animation-3 {
+  0% {
+    transform: scale(0);
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.2;
+  }
+  100% {
+    transform: scale(8);
+    opacity: 0;
+  }
+}
+
+/* Dark theme ripple */
+.dark-ripple .ripple-circle {
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+}
+
+/* Light theme ripple */
+.light-ripple .ripple-circle {
+  border-color: rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Colored theme ripples */
+.colored-ripple .ripple-circle {
+  border-color: rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.15);
+}
+
+/* Prevent ripple on certain elements */
+.no-ripple {
+  pointer-events: auto;
+  position: relative;
+  z-index: 10;
+}

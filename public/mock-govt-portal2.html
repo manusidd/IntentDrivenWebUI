@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local LLM-Powered Adaptive Portal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            transition: all 0.8s ease;
+        }
+
+        .system-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-size: 0.9rem;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        .local { background: #48bb78; }
+        .cloud { background: #4299e1; }
+        .offline { background: #f56565; }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.6s ease;
+        }
+
+        .welcome-state {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 60px 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .expanded-state {
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 15px;
+            padding: 30px;
+            width: 100%;
+            max-width: 1000px;
+            min-height: 70vh;
+        }
+
+        h1 {
+            color: #2d3748;
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            font-weight: 300;
+        }
+
+        .subtitle {
+            color: #4a5568;
+            font-size: 1.2rem;
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+
+        .local-ai-badge {
+            background: linear-gradient(45deg, #48bb78, #38a169);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+            display: inline-block;
+        }
+
+        .input-container {
+            position: relative;
+            margin-bottom: 30px;
+        }
+
+        .main-input {
+            width: 100%;
+            padding: 20px 25px;
+            font-size: 1.1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 50px;
+            outline: none;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .main-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .real-time-analysis {
+            position: absolute;
+            top: -25px;
+            right: 10px;
+            font-size: 0.8rem;
+            color: #48bb78;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .real-time-analysis.active {
+            opacity: 1;
+        }
+
+        .confidence-bar {
+            width: 100%;
+            height: 3px;
+            background: #e2e8f0;
+            border-radius: 2px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #48bb78, #38a169);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .smart-suggestions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 30px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.5s ease;
+        }
+
+        .smart-suggestions.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .suggestion-card {
+            background: rgba(102, 126, 234, 0.1);
+            border: 2px solid transparent;
+            border-radius: 15px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: left;
+        }
+
+        .suggestion-card:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .suggestion-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .suggestion-desc {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .adaptive-components {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.6s ease;
+            margin-top: 30px;
+        }
+
+        .adaptive-components.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .component-card {
+            background: #f8fafc;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .component-card::before {
+            content: '🧠 Local AI';
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 0.7rem;
+            background: #48bb78;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 10px;
+        }
+
+        .component-card.server::before {
+            content: '☁️ Server';
+            background: #4299e1;
+        }
+
+        .component-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
+
+        .card-content {
+            color: #4a5568;
+            line-height: 1.6;
+        }
+
+        .form-field {
+            margin: 15px 0;
+        }
+
+        .form-field label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #2d3748;
+        }
+
+        .smart-input {
+            position: relative;
+        }
+
+        .form-field input, .form-field select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-field input:focus, .form-field select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .ai-suggestion {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #48bb78;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .ai-suggestion.show {
+            opacity: 1;
+        }
+
+        .validation-feedback {
+            margin-top: 8px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .validation-feedback.show {
+            opacity: 1;
+        }
+
+        .validation-feedback.success {
+            background: #f0fff4;
+            color: #38a169;
+            border: 1px solid #9ae6b4;
+        }
+
+        .validation-feedback.warning {
+            background: #fffbf0;
+            color: #d69e2e;
+            border: 1px solid #fbd38d;
+        }
+
+        .processing-indicator {
+            display: none;
+            align-items: center;
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(72, 187, 120, 0.1);
+            border-radius: 10px;
+            color: #2d3748;
+        }
+
+        .processing-dots {
+            display: inline-flex;
+            margin-left: 10px;
+        }
+
+        .processing-dots span {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #48bb78;
+            margin: 0 2px;
+            animation: processing 1s infinite;
+        }
+
+        .processing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .processing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes processing {
+            0%, 60%, 100% { transform: scale(1); opacity: 0.5; }
+            30% { transform: scale(1.2); opacity: 1; }
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .performance-metrics {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            font-family: monospace;
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 10px; }
+            .welcome-state { padding: 40px 20px; }
+            h1 { font-size: 2rem; }
+            .smart-suggestions { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="system-status" id="systemStatus">
+        <span class="status-indicator local"></span>
+        Local AI: Active
+    </div>
+
+    <div class="performance-metrics" id="performanceMetrics">
+        Inference: 23ms | Memory: 847MB | CPU: 15%
+    </div>
+
+    <div class="container" id="container">
+        <div class="welcome-state" id="mainInterface">
+            <div class="local-ai-badge">🧠 Powered by Local AI - Privacy First</div>
+            <h1>Intelligent City Services</h1>
+            <p class="subtitle">Your personal AI assistant running locally in your browser. No data leaves your device.</p>
+            
+            <div class="input-container">
+                <div class="real-time-analysis" id="realTimeAnalysis">Analyzing intent locally...</div>
+                <input type="text" class="main-input" id="userInput" placeholder="Describe what you need help with..." />
+                <div class="confidence-bar">
+                    <div class="confidence-fill" id="confidenceFill"></div>
+                </div>
+            </div>
+
+            <div class="processing-indicator" id="processingIndicator">
+                <span>🧠 Local AI processing</span>
+                <div class="processing-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+
+            <div class="smart-suggestions" id="smartSuggestions">
+                <div class="suggestion-card" onclick="selectSuggestion('apply for business license food truck')">
+                    <div class="suggestion-title">🚚 Food Truck License</div>
+                    <div class="suggestion-desc">Complete application with health permits</div>
+                </div>
+                <div class="suggestion-card" onclick="selectSuggestion('pay property tax online')">
+                    <div class="suggestion-title">🏠 Property Tax</div>
+                    <div class="suggestion-desc">Pay taxes and set up auto-payments</div>
+                </div>
+                <div class="suggestion-card" onclick="selectSuggestion('building permit home renovation')">
+                    <div class="suggestion-title">🔨 Building Permit</div>
+                    <div class="suggestion-desc">Renovation and construction permits</div>
+                </div>
+                <div class="suggestion-card" onclick="selectSuggestion('report storm damage insurance claim')">
+                    <div class="suggestion-title">⛈️ Storm Damage</div>
+                    <div class="suggestion-desc">Emergency assistance and claims</div>
+                </div>
+            </div>
+
+            <div class="adaptive-components" id="adaptiveComponents">
+                <!-- Dynamic components will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let localAIModel = {
+            confidence: 0,
+            processingTime: 0,
+            memoryUsage: 847,
+            isLoaded: true
+        };
+
+        let currentState = 'welcome';
+        let inferenceCount = 0;
+
+        // Simulate local LLM inference
+        function runLocalInference(input) {
+            const startTime = performance.now();
+            
+            // Simulate model processing
+            return new Promise(resolve => {
+                setTimeout(() => {
+                    const endTime = performance.now();
+                    localAIModel.processingTime = Math.round(endTime - startTime + Math.random() * 30);
+                    localAIModel.memoryUsage += Math.random() * 50 - 25;
+                    
+                    updatePerformanceMetrics();
+                    
+                    // Intent classification logic
+                    let intent = classifyIntent(input);
+                    let confidence = calculateConfidence(input, intent);
+                    
+                    resolve({ intent, confidence });
+                }, 100 + Math.random() * 200);
+            });
+        }
+
+        function classifyIntent(input) {
+            const intents = {
+                business: ['business', 'license', 'restaurant', 'food truck', 'store', 'company'],
+                property: ['property', 'tax', 'payment', 'pay', 'house', 'home'],
+                permit: ['permit', 'building', 'construction', 'renovation', 'deck'],
+                emergency: ['storm', 'damage', 'emergency', 'flood', 'disaster', 'help']
+            };
+            
+            let scores = {};
+            for (let [intentName, keywords] of Object.entries(intents)) {
+                scores[intentName] = keywords.reduce((score, keyword) => {
+                    return score + (input.toLowerCase().includes(keyword) ? 1 : 0);
+                }, 0);
+            }
+            
+            return Object.keys(scores).reduce((a, b) => scores[a] > scores[b] ? a : b);
+        }
+
+        function calculateConfidence(input, intent) {
+            // Simple confidence calculation based on keyword matches
+            const words = input.toLowerCase().split(' ');
+            let matches = 0;
+            
+            const intentKeywords = {
+                business: ['business', 'license', 'restaurant', 'food', 'truck'],
+                property: ['property', 'tax', 'payment', 'pay'],
+                permit: ['permit', 'building', 'construction'],
+                emergency: ['storm', 'damage', 'emergency', 'flood']
+            };
+            
+            if (intentKeywords[intent]) {
+                matches = words.filter(word => intentKeywords[intent].includes(word)).length;
+            }
+            
+            return Math.min(0.9, 0.3 + (matches * 0.2));
+        }
+
+        function updatePerformanceMetrics() {
+            const metrics = document.getElementById('performanceMetrics');
+            metrics.innerHTML = `
+                Inference: ${localAIModel.processingTime}ms | 
+                Memory: ${Math.round(localAIModel.memoryUsage)}MB | 
+                CPU: ${Math.round(15 + Math.random() * 10)}%
+            `;
+        }
+
+        document.getElementById('userInput').addEventListener('input', async function(e) {
+            const value = e.target.value;
+            const realTimeAnalysis = document.getElementById('realTimeAnalysis');
+            const confidenceFill = document.getElementById('confidenceFill');
+            
+            if (value.length > 2) {
+                realTimeAnalysis.classList.add('active');
+                showProcessingIndicator();
+                
+                try {
+                    const result = await runLocalInference(value);
+                    
+                    localAIModel.confidence = result.confidence;
+                    confidenceFill.style.width = (result.confidence * 100) + '%';
+                    
+                    if (result.confidence > 0.6) {
+                        realTimeAnalysis.textContent = `Intent: ${result.intent} (${Math.round(result.confidence * 100)}% confidence)`;
+                        showSmartSuggestions();
+                        
+                        if (result.confidence > 0.8) {
+                            setTimeout(() => {
+                                morphInterface(result.intent);
+                            }, 1000);
+                        }
+                    } else {
+                        realTimeAnalysis.textContent = 'Understanding your request...';
+                    }
+                    
+                } catch (error) {
+                    console.error('Local inference error:', error);
+                    realTimeAnalysis.textContent = 'Processing...';
+                } finally {
+                    hideProcessingIndicator();
+                }
+            } else {
+                realTimeAnalysis.classList.remove('active');
+                confidenceFill.style.width = '0%';
+                hideSmartSuggestions();
+                resetToWelcome();
+            }
+        });
+
+        function showProcessingIndicator() {
+            document.getElementById('processingIndicator').style.display = 'flex';
+        }
+
+        function hideProcessingIndicator() {
+            document.getElementById('processingIndicator').style.display = 'none';
+        }
+
+        function showSmartSuggestions() {
+            document.getElementById('smartSuggestions').classList.add('show');
+        }
+
+        function hideSmartSuggestions() {
+            document.getElementById('smartSuggestions').classList.remove('show');
+        }
+
+        function selectSuggestion(text) {
+            document.getElementById('userInput').value = text;
+            runLocalInference(text).then(result => {
+                morphInterface(result.intent);
+            });
+        }
+
+        function morphInterface(intent) {
+            const container = document.getElementById('container');
+            const mainInterface = document.getElementById('mainInterface');
+            const adaptiveComponents = document.getElementById('adaptiveComponents');
+            
+            // Transform layout
+            container.style.justifyContent = 'flex-start';
+            container.style.paddingTop = '50px';
+            mainInterface.classList.remove('welcome-state');
+            mainInterface.classList.add('expanded-state');
+            document.body.style.background = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
+            
+            // Generate components based on intent
+            let componentsHTML = generateAdaptiveComponents(intent);
+            adaptiveComponents.innerHTML = componentsHTML;
+            
+            setTimeout(() => {
+                adaptiveComponents.classList.add('show');
+                initializeSmartInputs();
+            }, 300);
+            
+            hideSmartSuggestions();
+            currentState = 'expanded';
+        }
+
+        function generateAdaptiveComponents(intent) {
+            const components = {
+                business: `
+                    <div class="component-card">
+                        <div class="card-title">Business License Application</div>
+                        <div class="card-content">
+                            <div class="form-field">
+                                <label>Business Name</label>
+                                <div class="smart-input">
+                                    <input type="text" class="smart-field" data-validate="business-name" placeholder="Enter your business name">
+                                    <div class="ai-suggestion">AI Auto-complete</div>
+                                </div>
+                                <div class="validation-feedback" id="business-name-feedback"></div>
+                            </div>
+                            <div class="form-field">
+                                <label>Business Type</label>
+                                <select class="smart-field" data-predict="business-type">
+                                    <option>Food Service</option>
+                                    <option>Retail</option>
+                                    <option>Professional Services</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="component-card server">
+                        <div class="card-title">Regulatory Requirements</div>
+                        <div class="card-content">
+                            <p>Based on your business type, these requirements are automatically identified:</p>
+                            <ul style="margin: 15px 0; padding-left: 20px;">
+                                <li>✅ Business License (Processing)</li>
+                                <li>✅ Health Department Permit (Required)</li>
+                                <li>⏳ Fire Department Inspection (Scheduled)</li>
+                                <li>📋 Workers' Compensation (Recommended)</li>
+                            </ul>
+                        </div>
+                    </div>
+                `,
+                property: `
+                    <div class="component-card">
+                        <div class="card-title">Property Tax Payment</div>
+                        <div class="card-content">
+                            <div class="form-field">
+                                <label>Property Address</label>
+                                <div class="smart-input">
+                                    <input type="text" class="smart-field" data-validate="address" placeholder="123 Main Street">
+                                    <div class="ai-suggestion show">GPS Auto-fill</div>
+                                </div>
+                                <div class="validation-feedback success show">Address verified ✓</div>
+                            </div>
+                            <div style="background: #e6fffa; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                                <strong>💡 AI Recommendation:</strong> Set up automatic payments to save $25 annually in processing fees
+                            </div>
+                        </div>
+                    </div>
+                `,
+                permit: `
+                    <div class="component-card">
+                        <div class="card-title">Building Permit Application</div>
+                        <div class="card-content">
+                            <div class="form-field">
+                                <label>Project Description</label>
+                                <div class="smart-input">
+                                    <input type="text" class="smart-field" data-analyze="project" placeholder="Describe your project">
+                                    <div class="ai-suggestion">Smart categorization</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="component-card server">
+                        <div class="card-title">Automated Compliance Check</div>
+                        <div class="card-content">
+                            <div style="display: grid; gap: 10px;">
+                                <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #48bb78;">
+                                    ✅ Zoning compliance verified
+                                </div>
+                                <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #ed8936;">
+                                    ⚠️ HOA approval required
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                emergency: `
+                    <div class="component-card">
+                        <div class="card-title">Emergency Damage Report</div>
+                        <div class="card-content">
+                            <div style="background: #fef5e7; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                                <strong>🚨 Priority Processing Active</strong><br>
+                                Emergency reports are processed immediately
+                            </div>
+                            <div class="form-field">
+                                <label>Upload Photos (AI will analyze damage)</label>
+                                <input type="file" accept="image/*" multiple>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="component-card server">
+                        <div class="card-title">Available Emergency Resources</div>
+                        <div class="card-content">
+                            <div style="display: grid; gap: 15px;">
+                                <div style="background: white; padding: 15px; border-radius: 8px;">
+                                    <strong>🏠 Temporary Housing</strong> - Available now
+                                </div>
+                                <div style="background: white; padding: 15px; border-radius: 8px;">
+                                    <strong>💰 Emergency Funds</strong> - $2,500 available
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `
+            };
+
+            return components[intent] || components.business;
+        }
+
+        function initializeSmartInputs() {
+            const smartFields = document.querySelectorAll('.smart-field');
+            
+            smartFields.forEach(field => {
+                field.addEventListener('input', function() {
+                    simulateLocalValidation(this);
+                });
+                
+                field.addEventListener('focus', function() {
+                    const suggestion = this.parentElement.querySelector('.ai-suggestion');
+                    if (suggestion) {
+                        suggestion.classList.add('show');
+                    }
+                });
+            });
+        }
+
+        function simulateLocalValidation(field) {
+            setTimeout(() => {
+                const feedbackId = field.dataset.validate + '-feedback';
+                const feedback = document.getElementById(feedbackId);
+                
+                if (feedback && field.value.length > 2) {
+                    if (Math.random() > 0.3) {
+                        feedback.className = 'validation-feedback success show';
+                        feedback.textContent = '✓ Validated locally';
+                    } else {
+                        feedback.className = 'validation-feedback warning show';
+                        feedback.textContent = '⚠️ Please verify this information';
+                    }
+                }
+            }, 200 + Math.random() * 300);
+        }
+
+        function resetToWelcome() {
+            const container = document.getElementById('container');
+            const mainInterface = document.getElementById('mainInterface');
+            const adaptiveComponents = document.getElementById('adaptiveComponents');
+            
+            container.style.justifyContent = 'center';
+            container.style.paddingTop = '20px';
+            mainInterface.classList.remove('expanded-state');
+            mainInterface.classList.add('welcome-state');
+            document.body.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+            
+            adaptiveComponents.classList.remove('show');
+            adaptiveComponents.innerHTML = '';
+            document.getElementById('userInput').value = '';
+            document.getElementById('confidenceFill').style.width = '0%';
+            document.getElementById('realTimeAnalysis').classList.remove('active');
+            
+            hideSmartSuggestions();
+            currentState = 'welcome';
+        }
+
+        // Initialize performance metrics
+        updatePerformanceMetrics();
+        
+        // Simulate periodic performance updates
+        setInterval(updatePerformanceMetrics, 2000);
+    </script>
+</body>
+</html>
